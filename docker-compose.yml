@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+  jenkins-docker-in-docker:
+    image: docker:dind
+    privileged: true
+    command: --storage-driver=overlay2
+    user: root
+    restart: always
+    ports:
+        - 2376:2376
+    container_name: inner-docker
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - jenkins-docker-certs:/certs/client
+      - jenkins-data:/var/jenkins_home
+    networks:
+      jenkins:
+        aliases:
+          - docker
+
+  jenkins:
+      image: jenkins-devops:lastest
+      container_name: jenkins-container
+      build:
+        context: ./
+        dockerfile: Dockerfile
+      restart: always
+      ports:
+        - 8080:8080
+        - 50000:50000
+      environment:
+        DOCKER_HOST:  tcp:/docker:2376
+        DOCKER_CERT_PATH: /certs/client
+        DOCKER_TLS_VERIFY: 1
+      depends_on:
+        - jenkins-docker-in-docker
+      volumes:
+        - jenkins-data:/var/jenkins_home
+        - jenkins-docker-certs:/certs/client:ro
+      networks:
+        - jenkins
+volumes:
+  jenkins-data:
+  jenkins-docker-certs:
+
+networks:
+  jenkins:
